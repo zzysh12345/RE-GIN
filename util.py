@@ -53,20 +53,22 @@ def load_data(dataset, degree_as_tag):
                 row = f.readline().strip().split()
                 tmp = int(row[1]) + 2
                 if tmp == len(row):
+                    # 所有数据集
                     # no node attributes
                     row = [int(w) for w in row]
                     attr = None
                 else:
-                    row, attr = [int(w) for w in row[:tmp]], np.array([float(w) for w in row[tmp:]])
+                    # 根本没用到？
+                    row, attr = [int(w) for w in row[:tmp]], np.array([float(w) for w in row[tmp:]])   # 前面是边，后面是特征
                 if not row[0] in feat_dict:
                     mapped = len(feat_dict)
                     feat_dict[row[0]] = mapped
-                node_tags.append(feat_dict[row[0]])
+                node_tags.append(feat_dict[row[0]])   # 第一个像是标签
 
                 if tmp > len(row):
                     node_features.append(attr)
 
-                n_edges += row[1]
+                n_edges += row[1]   # 第二个是该节点的边数
                 for k in range(2, len(row)):
                     g.add_edge(j, row[k])
 
@@ -85,18 +87,19 @@ def load_data(dataset, degree_as_tag):
     for g in g_list:
         g.neighbors = [[] for i in range(len(g.g))]
         for i, j in g.g.edges():
+            # 无向图
             g.neighbors[i].append(j)
             g.neighbors[j].append(i)
         degree_list = []
         for i in range(len(g.g)):
-            g.neighbors[i] = g.neighbors[i]
+            g.neighbors[i] = g.neighbors[i]   # 啊？
             degree_list.append(len(g.neighbors[i]))
         g.max_neighbor = max(degree_list)
 
         g.label = label_dict[g.label]
 
         edges = [list(pair) for pair in g.g.edges()]
-        edges.extend([[i, j] for j, i in edges])
+        edges.extend([[i, j] for j, i in edges])   # 这样会不会有重复呢
 
         deg_list = list(dict(g.g.degree(range(len(g.g)))).values())
         g.edge_mat = torch.LongTensor(edges).transpose(0,1)
@@ -115,7 +118,7 @@ def load_data(dataset, degree_as_tag):
 
     for g in g_list:
         g.node_features = torch.zeros(len(g.node_tags), len(tagset))
-        g.node_features[range(len(g.node_tags)), [tag2index[tag] for tag in g.node_tags]] = 1
+        g.node_features[range(len(g.node_tags)), [tag2index[tag] for tag in g.node_tags]] = 1   # 特征是节点标签的one-hot向量
 
 
     print('# classes: %d' % len(label_dict))

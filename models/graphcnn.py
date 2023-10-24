@@ -66,7 +66,7 @@ class GraphCNN(nn.Module):
 
         for i, graph in enumerate(batch_graph):
             start_idx.append(start_idx[i] + len(graph.g))
-            padded_neighbors = []
+            padded_neighbors = []   # 最终：n_node, max_degree(+1)
             for j in range(len(graph.neighbors)):
                 #add off-set values to the neighbor indices
                 pad = [n + start_idx[i] for n in graph.neighbors[j]]
@@ -86,17 +86,18 @@ class GraphCNN(nn.Module):
     def __preprocess_neighbors_sumavepool(self, batch_graph):
         ###create block diagonal sparse matrix
 
-        edge_mat_list = []
+        edge_mat_list = []   # 所有图的边
         start_idx = [0]
         for i, graph in enumerate(batch_graph):
             start_idx.append(start_idx[i] + len(graph.g))
             edge_mat_list.append(graph.edge_mat + start_idx[i])
-        Adj_block_idx = torch.cat(edge_mat_list, 1)
-        Adj_block_elem = torch.ones(Adj_block_idx.shape[1])
+        Adj_block_idx = torch.cat(edge_mat_list, 1)   # (2, n_all_edges)
+        Adj_block_elem = torch.ones(Adj_block_idx.shape[1])   # (n_all_edges, )
 
         #Add self-loops in the adjacency matrix if learn_eps is False, i.e., aggregate center nodes and neighbor nodes altogether.
 
         if not self.learn_eps:
+            # 添加自环
             num_node = start_idx[-1]
             self_loop_edge = torch.LongTensor([range(num_node), range(num_node)])
             elem = torch.ones(num_node)
@@ -117,8 +118,8 @@ class GraphCNN(nn.Module):
         for i, graph in enumerate(batch_graph):
             start_idx.append(start_idx[i] + len(graph.g))
 
-        idx = []
-        elem = []
+        idx = []   # 每个节点序号及所属图序号 (num graphs x num nodes, 2)
+        elem = []   # 每个节点池化的系数 (num graphs x num nodes, )
         for i, graph in enumerate(batch_graph):
             ###average pooling
             if self.graph_pooling_type == "average":
@@ -129,6 +130,8 @@ class GraphCNN(nn.Module):
                 elem.extend([1]*len(graph.g))
 
             idx.extend([[i, j] for j in range(start_idx[i], start_idx[i+1], 1)])
+        # print(len(idx))
+        # print(len(elem))
         elem = torch.FloatTensor(elem)
         idx = torch.LongTensor(idx).transpose(0,1)
         graph_pool = torch.sparse.FloatTensor(idx, elem, torch.Size([len(batch_graph), start_idx[-1]]))
@@ -138,7 +141,7 @@ class GraphCNN(nn.Module):
     def maxpool(self, h, padded_neighbor_list):
         ###Element-wise minimum will never affect max-pooling
 
-        dummy = torch.min(h, dim = 0)[0]
+        dummy = torch.min(h, dim=0)[0]
         h_with_dummy = torch.cat([h, dummy.reshape((1, -1)).to(self.device)])
         pooled_rep = torch.max(h_with_dummy[padded_neighbor_list], dim = 1)[0]
         return pooled_rep
@@ -193,16 +196,16 @@ class GraphCNN(nn.Module):
 
 
     def forward(self, batch_graph):
-        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
-        graph_pool = self.__preprocess_graphpool(batch_graph)
+        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)   # 拼接起来
+        graph_pool = self.__preprocess_graphpool(batch_graph)   # sparse graph_id, node_id, ones/avg, (n_graph, n_nodes)
 
         if self.neighbor_pooling_type == "max":
-            padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)
+            padded_neighbor_list = self.__preprocess_neighbors_maxpool(batch_graph)   # (n_all_nodes, max_degree)
         else:
-            Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)
+            Adj_block = self.__preprocess_neighbors_sumavepool(batch_graph)   # sparse all_edges, ones, (n_all_nodes, n_all_nodes)
 
         #list of hidden representation at each layer (including input)
-        hidden_rep = [X_concat]
+        hidden_rep = [X_concat]   # 最终: K个(n_all_nodes, d)
         h = X_concat
 
         for layer in range(self.num_layers-1):

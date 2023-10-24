@@ -83,7 +83,7 @@ def main():
     # Training settings
     # Note: Hyper-parameters need to be tuned in order to obtain results reported in the paper.
     parser = argparse.ArgumentParser(description='PyTorch graph convolutional neural net for whole-graph classification')
-    parser.add_argument('--dataset', type=str, default="MUTAG",
+    parser.add_argument('--dataset', type=str, default="PROTEINS",
                         help='name of dataset (default: MUTAG)')
     parser.add_argument('--device', type=int, default=0,
                         help='which gpu to use if any (default: 0)')
@@ -127,6 +127,7 @@ def main():
         torch.cuda.manual_seed_all(0)
 
     graphs, num_classes = load_data(args.dataset, args.degree_as_tag)
+    # print(graphs[0].node_features)
 
     ##10-fold cross validation. Conduct an experiment on the fold specified by args.fold_idx.
     train_graphs, test_graphs = separate_data(graphs, args.seed, args.fold_idx)
@@ -149,7 +150,7 @@ def main():
                 f.write("\n")
         print("")
 
-        print(model.eps)
+        # print(model.eps)
     
 
 if __name__ == '__main__':
